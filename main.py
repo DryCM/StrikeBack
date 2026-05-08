@@ -15,7 +15,6 @@ import ctypes
 from datetime import datetime
 
 # ─── Fijar encoding UTF-8 en consola Windows ────────────────────────────────
-import io
 try:
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -66,12 +65,9 @@ from monitors.ai_attack_monitor import AIAttackMonitor
 from monitors.honeypot import HoneypotMonitor
 from monitors.credential_guard import CredentialGuard
 from monitors.registry_monitor import RegistryMonitor
-from monitors.secrets_scanner import SecretsScanner
 from monitors.injection_detector import InjectionDetector
 from monitors.yara_scanner import YaraScanner
 from monitors.auto_response import AutoResponse
-from monitors.privilege_manager import PrivilegeManager
-from monitors.security_audit import SecurityAudit
 from ai.threat_analyzer import ThreatAnalyzer
 from utils.database import Database
 from utils.alerts import Alerts
@@ -136,12 +132,9 @@ class StrikeBack:
         self.honeypot_monitor   = HoneypotMonitor(self._on_raw_threat)
         self.credential_guard   = CredentialGuard(self._on_raw_threat)
         self.registry_monitor   = RegistryMonitor(self._on_raw_threat)
-        self.secrets_scanner    = SecretsScanner(self._on_raw_threat)
         self.injection_detector = InjectionDetector(self._on_raw_threat)
         self.yara_scanner       = YaraScanner(self._on_raw_threat)
         self.auto_response      = AutoResponse(notify_callback=self._on_raw_threat)
-        self.privilege_manager  = PrivilegeManager(self._on_raw_threat)
-        self.security_audit     = SecurityAudit(self._on_raw_threat)
         self.threat_intel     = ThreatIntel()
         self.web_dashboard    = WebDashboard(db_path=config.DB_PATH)
 
@@ -176,12 +169,9 @@ class StrikeBack:
         self.honeypot_monitor.start()
         self.credential_guard.start()
         self.registry_monitor.start()
-        self.secrets_scanner.start()
         self.injection_detector.start()
         self.yara_scanner.start()
         self.auto_response.start()
-        self.privilege_manager.start()
-        self.security_audit.start()
         self.web_dashboard.start(open_browser=False)
         self.tray.start()
 
@@ -199,7 +189,7 @@ class StrikeBack:
                 on_open_web  = _open_web,
                 db_path      = config.DB_PATH,
             )
-            self._main_window.set_monitors_status(15, 15)
+            self._main_window.set_monitors_status(12, 12)
             self._main_window.show()
 
             # Qt loop bloquea hasta cerrar la ventana
@@ -231,11 +221,8 @@ class StrikeBack:
         self.registry_monitor.stop()
         self.injection_detector.stop()
         self.yara_scanner.stop()
-        self.secrets_scanner.stop()
         self.credential_guard.stop()
         self.honeypot_monitor.stop()
-        self.security_audit.stop()
-        self.privilege_manager.stop()
         self.ai_analyzer.stop()
         self.web_dashboard.stop()
         self.tray.stop()
@@ -266,8 +253,9 @@ class StrikeBack:
         threat_id = self.db.save_threat(threat)
         threat["_db_id"] = threat_id
 
-        # 2. Actualizar dashboard terminal
-        self.dashboard.add_threat(threat)
+        # 2. Actualizar dashboard terminal (solo si Qt no está activo)
+        if not _QT_AVAILABLE:
+            self.dashboard.add_threat(threat)
 
         # 2b. Actualizar ventana nativa Qt
         if self._main_window is not None:
@@ -358,12 +346,13 @@ class StrikeBack:
             if self._main_window is not None:
                 self._main_window.update_threat_ai(threat)
 
-            # Actualizar en el dashboard (buscar y reemplazar)
-            with self.dashboard._lock:
-                for i, t in enumerate(self.dashboard._recent_threats):
-                    if t.get("_db_id") == threat_id:
-                        self.dashboard._recent_threats[i] = threat
-                        break
+            # Actualizar en el dashboard terminal (solo si Qt no está activo)
+            if not _QT_AVAILABLE:
+                with self.dashboard._lock:
+                    for i, t in enumerate(self.dashboard._recent_threats):
+                        if t.get("_db_id") == threat_id:
+                            self.dashboard._recent_threats[i] = threat
+                            break
 
             # Si la IA confirma amenaza grave, notificar de nuevo con contexto
             ai      = threat.get("ai_analysis") or {}
