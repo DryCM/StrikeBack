@@ -140,7 +140,15 @@ class AIAttackMonitor:
                 combined = name + " " + cmdline
 
                 for tool, (sev, desc, mitre) in _SUSPICIOUS_AI_PROCESSES.items():
-                    if tool in combined:
+                    # Coincidencia exacta de nombre de proceso (sin extensión)
+                    name_no_ext = name.rsplit(".", 1)[0] if "." in name else name
+                    name_match  = (name_no_ext == tool)
+                    # Cmdline: solo firmas de ≥6 chars, como palabra completa (evita "art" en "start")
+                    cmd_match   = (
+                        len(tool) >= 6 and
+                        re.search(r"(?<![a-z])" + re.escape(tool) + r"(?![a-z])", cmdline)
+                    )
+                    if name_match or cmd_match:
                         self._emit({
                             "source":      "AIAttackMonitor",
                             "title":       f"[{mitre}] Herramienta de ataque IA activa: {tool}",
