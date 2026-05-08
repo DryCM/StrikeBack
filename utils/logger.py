@@ -11,7 +11,9 @@ def get_logger(name: str) -> logging.Logger:
         level = getattr(logging, config.LOG_LEVEL, logging.INFO)
         logger.setLevel(level)
 
-        os.makedirs(os.path.dirname(config.LOG_PATH), exist_ok=True)
+        _log_dir = os.path.dirname(os.path.abspath(config.LOG_PATH))
+        if _log_dir:
+            os.makedirs(_log_dir, exist_ok=True)
 
         # Handler a archivo
         fh = logging.FileHandler(config.LOG_PATH, encoding="utf-8")
