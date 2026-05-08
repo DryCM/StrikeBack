@@ -1,0 +1,58 @@
+# ── Entorno virtual ───────────────────────────────────────────────────────────
+.venv/
+venv/
+env/
+
+# ── Build / distribución ──────────────────────────────────────────────────────
+dist/
+build/
+*.spec.bak
+
+# ── Python cache ──────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Datos de runtime (sensibles / generados en ejecución) ────────────────────
+data/strikeback.db
+data/strikeback.log
+data/.auth_config
+data/.keystore
+data/.tls/
+data/quarantine/
+data/reports/
+# Mantener estructura de carpetas
+!data/quarantine/.gitkeep
+!data/reports/.gitkeep
+!data/yara_rules/
+
+# ── Secretos / certificados ───────────────────────────────────────────────────
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+.env
+.env.*
+secrets.py
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.user
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# ── PyInstaller artefactos intermedios ───────────────────────────────────────
+*.toc
+*.pkg
+*.pyz
+*.manifest
+warn-*.txt
+xref-*.html
