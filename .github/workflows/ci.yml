@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  # ── Job 1: Syntax & import check (rápido, Linux) ──────────────────────────
+  syntax:
+    name: Syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install minimal deps
+        run: pip install openai cryptography watchdog psutil pyyaml requests
+
+      - name: Compile all Python files
+        run: |
+          python -m compileall -q \
+            config.py main.py \
+            ai/ monitors/ tools/ utils/ web/ cli/
+
+      - name: Import check (core modules)
+        run: |
+          python -c "import config; print('config OK')"
+          python -c "from ai.ai_guard import ai_guard; print('ai_guard OK')"
+          python -c "from ai.threat_analyzer import ThreatAnalyzer, KILL_CHAIN_LABELS; print('threat_analyzer OK')"
+          python -c "from utils.logger import get_logger; print('logger OK')"
+          python -c "from utils.crypto_engine import get_crypto_engine; print('crypto_engine OK')"
+
+  # ── Job 2: Full test suite (Windows) ──────────────────────────────────────
+  tests:
+    name: Test suite (Windows)
+    runs-on: windows-latest
+    needs: syntax
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run efficacy tests
+        run: python test_efficacy.py
+        timeout-minutes: 5
+        env:
+          PYTHONIOENCODING: utf-8

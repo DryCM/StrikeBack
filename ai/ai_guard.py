@@ -59,6 +59,15 @@ _EVASION_PATTERNS: list[tuple[re.Pattern, str]] = [
 _REQUIRED_AI_FIELDS = {"is_threat", "confirmed_severity", "impact", "summary"}
 _SEVERITY_RANGE     = range(1, 11)
 
+# Valores válidos para los campos opcionales del esquema v2
+_VALID_URGENCY = {"immediate", "high", "medium", "low"}
+_VALID_KILL_CHAIN = {
+    "reconnaissance", "initial_access", "execution", "persistence",
+    "privilege_escalation", "defense_evasion", "credential_access",
+    "discovery", "lateral_movement", "collection", "command_control",
+    "exfiltration", "impact",
+}
+
 # ── Heurísticas de envenenamiento del modelo ─────────────────────────────────
 # Respuestas que indican que el modelo fue manipulado (RobustBench style)
 _POISONING_INDICATORS = [
@@ -201,6 +210,45 @@ class AIGuard:
         # ── is_threat debe ser bool ───────────────────────────────────────
         if not isinstance(data.get("is_threat"), bool):
             data["is_threat"] = bool(data.get("is_threat", False))
+
+        # ── Validaciones de campos v2 (urgency, kill_chain_stage, actions) ──
+        # urgency: normalizar a minúsculas y colapsar valores desconocidos
+        urgency = str(data.get("urgency", "")).lower().strip()
+        if urgency not in _VALID_URGENCY:
+            # Inferir desde severidad si el campo es inválido o vacío
+            sev_val = data.get("confirmed_severity", 5)
+            urgency = (
+                "immediate" if sev_val >= 9 else
+                "high"      if sev_val >= 7 else
+                "medium"    if sev_val >= 5 else
+                "low"
+            )
+            if data.get("urgency") not in (None, ""):
+                alerts.append({
+                    "type":   "INVALID_URGENCY",
+                    "detail": f"Valor urgency desconocido '{data.get('urgency')}' → inferido '{urgency}'",
+                    "layer":  "output_validation",
+                })
+        data["urgency"] = urgency
+
+        # kill_chain_stage: aceptar solo valores conocidos, convertir a null si inválido
+        kcs = data.get("kill_chain_stage")
+        if kcs is not None and str(kcs).lower() not in _VALID_KILL_CHAIN:
+            alerts.append({
+                "type":   "INVALID_KILL_CHAIN",
+                "detail": f"kill_chain_stage desconocido: '{kcs}' → null",
+                "layer":  "output_validation",
+            })
+            data["kill_chain_stage"] = None
+        elif kcs is not None:
+            data["kill_chain_stage"] = str(kcs).lower()
+
+        # actions: garantizar lista de strings no vacía
+        actions = data.get("actions", [])
+        if not isinstance(actions, list) or not actions:
+            data["actions"] = ["Revisar el evento manualmente.", "Consultar el log detallado.", "Activar respuesta si persiste."]
+        else:
+            data["actions"] = [str(a) for a in actions if str(a).strip()][:5]  # máx 5 acciones
 
         # ── Detección de envenenamiento del modelo (ART style) ───────────
         # Si la IA dice que algo grave "es seguro", podría haber sido manipulada
