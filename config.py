@@ -331,7 +331,7 @@ AI_DEDUP_WINDOW_SECONDS  = 90    # Ventana de deduplicación (no re-analizar mis
 
 # Fiabilidad mínima para mostrar una amenaza en el dashboard.
 # Alertas con confidence < este valor se descartan silenciosamente.
-MIN_CONFIDENCE_TO_ALERT  = 70    # %  (0 = mostrar todo)
+MIN_CONFIDENCE_TO_ALERT  = 80    # %  (0 = mostrar todo)
 
 # --- Base de Datos ---
 DB_PATH = r"data\strikeback.db"
@@ -364,9 +364,8 @@ TOAST_NOTIFICATIONS      = True
 TOAST_DURATION           = 10   # segundos
 
 # --- IPs conocidas maliciosas (lista base, se amplía con VirusTotal) ---
-KNOWN_MALICIOUS_IPS = {
-    "0.0.0.0",   # placeholder - en producción cargar desde threat feeds
-}
+# No incluir 0.0.0.0 ni IPs reservadas: generan falsos positivos con psutil.
+KNOWN_MALICIOUS_IPS: set = set()  # se llena en runtime desde threat feeds
 
 # --- Directorios del sistema a ignorar en filesystem monitor ---
 IGNORE_PATHS = {

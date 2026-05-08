@@ -96,16 +96,23 @@ class ProcessMonitor:
                 })
 
                 # --- Regla 1: Firma de herramienta de ataque conocida ---
+                # Coincidencia EXACTA de nombre (sin extensión) para evitar falsos positivos
+                # por substring (ej. "john" en "johndoe.exe", "beacon" en otros procesos).
+                # El cmdline sí usa subcadena pero requiere firma de â6+ chars.
                 matched_sig = None
                 for sig_name, (sev, mitre, category) in config.ATTACK_TOOL_SIGNATURES.items():
-                    if sig_name in name_clean or sig_name in cmdline:
+                    name_match = (name_clean == sig_name)
+                    cmd_match  = (len(sig_name) >= 6 and sig_name in cmdline)
+                    if name_match or cmd_match:
                         matched_sig = (sig_name, sev, mitre, category)
                         break
 
                 if matched_sig and pid not in self._alerted_pids:
                     sig_name, sev, mitre, category = matched_sig
-                    confidence = _calc_confidence(name, exe, 70 + sev * 2)
-                    confidence = min(confidence, 98)
+                    # Base reducida para evitar que cualquier coincidencia llegue al 95-98%
+                    # Fórmula: 55 + sev*3  →  sev=7 → 76%,  sev=9 → 82%,  sev=10 → 85%
+                    confidence = _calc_confidence(name, exe, 55 + sev * 3)
+                    confidence = min(confidence, 97)
                     self._emit_threat(
                         pid=pid, severity=sev,
                         title=f"[{mitre}] Herramienta de ataque: {info['name']}",

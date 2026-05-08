@@ -85,9 +85,13 @@ class NetworkMonitor:
             current_conns.add(key)
             outgoing_ips[remote_ip] = outgoing_ips.get(remote_ip, 0) + 1
 
+            # Saltar conexiones loopback — nunca son tráfico externo malicioso
+            # (evita alertar sobre el propio servidor Flask :8443, etc.)
+            _is_local = remote_ip in ("127.0.0.1", "::1", "0.0.0.0", "localhost")
+
             # --- Regla 1: Puerto con firma de ataque ---
             sig = config.SUSPICIOUS_PORT_SIGNATURES.get(remote_port)
-            if sig and key not in self._prev_connections:
+            if sig and key not in self._prev_connections and not _is_local:
                 sev, desc, mitre = sig
                 confidence = _port_confidence(remote_port, proc_name)
                 self._emit_threat(
@@ -103,7 +107,7 @@ class NetworkMonitor:
                 )
 
             # --- Regla 2: IP maliciosa conocida ---
-            if remote_ip in config.KNOWN_MALICIOUS_IPS:
+            if remote_ip in config.KNOWN_MALICIOUS_IPS and not _is_local:
                 self._emit_threat(
                     severity=10,
                     title="[T1071] Conexión a IP maliciosa conocida",
